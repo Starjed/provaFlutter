@@ -44,8 +44,8 @@ class BottomBarState extends State<BottomBar> {
         type: BottomNavigationBarType.fixed,
         unselectedItemColor: const Color(0xFF526480),
         items: const [
-          BottomNavigationBarItem(icon: Icon(FluentSystemIcons.ic_fluent_home_regular),
-              activeIcon: Icon(FluentSystemIcons.ic_fluent_home_filled), label: "Weather"),
+          BottomNavigationBarItem(icon: Icon(FluentSystemIcons.ic_fluent_weather_cloudy_regular),
+              activeIcon: Icon(FluentSystemIcons.ic_fluent_weather_cloudy_filled), label: "Weather"),
           BottomNavigationBarItem(icon: Icon(FluentSystemIcons.ic_fluent_note_regular),
               activeIcon: Icon(FluentSystemIcons.ic_fluent_note_filled), label: "Task"),
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.bitcoin_circle),

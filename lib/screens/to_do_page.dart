@@ -1,81 +1,196 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'dart:async';
+import 'dart:convert';
 
 class ToDoPage extends StatefulWidget {
   const ToDoPage({Key? key}) : super(key: key);
 
   @override
-  _ToDoPageState createState() => _ToDoPageState();
+  State<ToDoPage> createState() => _ToDoPageState();
 }
 
 class _ToDoPageState extends State<ToDoPage> {
-  List<String> _todos = [];
+  List _tarefas = [];
+  final TextEditingController _novaItemController = TextEditingController();
+  final TextEditingController _editarTarefaController = TextEditingController();
+  Map<String, dynamic> _ultimaTarefaRemovida = Map();
+
+  Future<File> _getFile() async {
+    final diretorio = await getApplicationDocumentsDirectory();
+    return File("${diretorio.absolute}/tarefas.json");
+  }
+
+  _adicionarItem() {
+    String textoDigitado = _novaItemController.text;
+    Map<String, dynamic> item = Map();
+    item["nome"] = textoDigitado;
+    item["check"] = false;
+    setState(() {
+      _tarefas.add(item);
+    });
+    _salvarArquivo();
+    _novaItemController.text = "";
+  }
+
+  _salvarArquivo() async {
+    var arquivo = await _getFile();
+    String dados = jsonEncode(_tarefas);
+    arquivo.writeAsString(dados);
+  }
+
+  _lerArquivo() async {
+    try {
+      final arquivo = await _getFile();
+      return arquivo.readAsString();
+    } catch (e) {
+      return 1;
+    }
+  }
 
   @override
   void initState() {
-    _todos.add("teste");
-    _todos.add("salve");
-    _todos.add("alo");
-    _todos.add("fiz?");
     super.initState();
-  }
 
-  void _addTodo() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        String newTodo = "";
-        return AlertDialog(
-          title: Text("Add a new To-Do"),
-          content: TextField(
-            onChanged: (value) {
-              newTodo = value;
-            },
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  if (newTodo.isNotEmpty) {
-                    _todos.add(newTodo);
-                  }
-                  Navigator.pop(context);
-                });
-              },
-              child: Text("Add"),
-            ),
-          ],
-        );
-      },
-    );
+    _lerArquivo().then((dados) {
+      setState(() {
+        _tarefas = jsonDecode(dados);
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading:
-            IconButton(icon: const Icon(Icons.arrow_back), onPressed: () {}),
-        title: Text("Lista de Tarefas"),
-        backgroundColor: Colors.orange,
-      ),
+      appBar: AppBar(title: const Text("Lista de Tarefas"),
+      backgroundColor: Colors.orange),
       body: ListView.builder(
-        itemCount: _todos.length,
+        padding: const EdgeInsets.all(0),
+        itemCount: _tarefas.length,
         itemBuilder: (context, index) {
-          return Card(
-            elevation: 4,
-            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            child: ListTile(
-              title: Text(
-                _todos[index],
-                style: TextStyle(fontSize: 18),
+          return Dismissible(
+            key: Key(
+                "key${_tarefas[index]}${DateTime.now().millisecondsSinceEpoch.toString()}"),
+            onDismissed: (direction) {
+              _ultimaTarefaRemovida = _tarefas[index];
+
+              if (direction == DismissDirection.endToStart) {
+                setState(() {
+                  _tarefas.removeAt(index);
+                });
+
+                final snackBar = SnackBar(
+                  duration: const Duration(seconds: 3),
+                  content: const Text("Tarefa removida"),
+                  action: SnackBarAction(
+                    label: "Desfazer",
+                    onPressed: () {
+                      setState(() {
+                        _tarefas.insert(index, _ultimaTarefaRemovida);
+                      });
+                      _salvarArquivo();
+                    },
+                  ),
+                );
+
+                _salvarArquivo();
+                ScaffoldMessenger.of(context).showSnackBar(snackBar);
+              } else if (direction == DismissDirection.startToEnd) {
+                setState(() {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      _editarTarefaController.text = _tarefas[index]["nome"];
+                      return AlertDialog(
+                        title: const Text("Editar Tarefa"),
+                        content: TextField(
+                          decoration:
+                              const InputDecoration(labelText: "Digite o nome"),
+                          onChanged: (text) {},
+                          controller: _editarTarefaController,
+                        ),
+                        actions: [
+                          ElevatedButton(
+                            child: const Text("Cancelar"),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          ElevatedButton(
+                            child: const Text("Salvar"),
+                            onPressed: () {
+                              _tarefas[index]["nome"] =
+                                  _editarTarefaController.text;
+                              setState(() {
+                                _salvarArquivo();
+                              });
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                });
+              }
+            },
+            background: Container(
+              margin: const EdgeInsets.all(10.0),
+              color: Colors.green,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Icon(
+                      Icons.edit,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    "Editar",
+                    style: TextStyle(color: Colors.white),
+                  )
+                ],
               ),
-              trailing: IconButton(
-                icon: Icon(Icons.delete),
-                onPressed: () {
+            ),
+            secondaryBackground: Container(
+              margin: const EdgeInsets.all(10.0),
+              color: Colors.red,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    "Excluir",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Icon(
+                      Icons.delete,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            child: Container(
+              margin: EdgeInsets.all(10.0),
+              child: CheckboxListTile(
+                tileColor: Colors.black26,
+                activeColor: Colors.deepOrange,
+                title: Text(
+                  _tarefas[index]["nome"],
+                  style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.normal),
+                ),
+                value: _tarefas[index]["check"],
+                onChanged: (update) {
                   setState(() {
-                    _todos.removeAt(index);
+                    _tarefas[index]["check"] = update;
                   });
+                  _salvarArquivo();
                 },
               ),
             ),
@@ -83,9 +198,37 @@ class _ToDoPageState extends State<ToDoPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _addTodo,
-        backgroundColor: Colors.cyan,
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
+        onPressed: () {
+          _salvarArquivo();
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text("Nova Tarefa"),
+                content: TextField(
+                  decoration:
+                      const InputDecoration(labelText: "Digite seu Tarefa"),
+                  onChanged: (text) {},
+                  controller: _novaItemController,
+                ),
+                actions: [
+                  ElevatedButton(
+                    child: const Text("Cancelar"),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  ElevatedButton(
+                    child: const Text("Adicionar"),
+                    onPressed: () {
+                      _adicionarItem();
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }

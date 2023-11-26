@@ -2,102 +2,123 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-const List<String> list = <String>['Real', 'Dolar', 'Euro', 'Bitcoin'];
-
-class ConverterPage extends StatefulWidget {
-  const ConverterPage({super.key});
+class Converter extends StatefulWidget {
+  const Converter({Key? key}) : super(key: key);
 
   @override
-  State<ConverterPage> createState() => _ConverterState();
+  State<Converter> createState() => ConverterState();
 }
 
-class _ConverterState extends State<ConverterPage> {
-  String dropdownValue = list.first;
-  String dropdownValue2 = list.first;
-  String _chaveParaAcesso = "";
-  String _chaveParaAcesso2 = "";
-  double _sbh = 30.0;
+class ConverterState extends State<Converter> {
+  String _moedaOrigem = 'BRL'; // Moeda de origem padrão
+  String _moedaDestino = 'USD'; // Moeda de destino padrão
+  double _cotacao = 0.0;
+  bool _exibirCotacao = false;
 
-  Map valores = {"Real":"BRL","Dolar":"USD","Euro":"EUR","Bitcoin":"BTC"};
-  String _preco = "";
-
-  void Converter() async{
-    var url = Uri.parse(
-        "https://economia.awesomeapi.com.br/last/${valores[_chaveParaAcesso2]}-${valores[_chaveParaAcesso]}");
-    http.Response response;
-    response = await http.get(url);
-
-    Map<String, dynamic> retorno = json.decode(response.body);
-    print(retorno);
-    String _chamada = valores[_chaveParaAcesso2]+valores[_chaveParaAcesso];
-    //print(retorno);
-
-    setState(() {
-      _preco = "A conversão ${retorno[_chamada]["name"]} é de ${retorno[_chamada]["high"]}";
-    });
-  }
+  List<String> _moedas = ['BRL', 'USD', 'EUR', 'ILS', 'BTC', 'LTC', 'ETH', 'XRP'];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Money API"),),
-      body: ListView(children: [Container(child: Padding(
-        padding: const EdgeInsets.all(30.0),
-        child: Column(mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          crossAxisAlignment: CrossAxisAlignment.center,
+      appBar: AppBar(
+        title: const Text('Conversor de Moedas'),
+        backgroundColor: Colors.blueAccent,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_preco,
-              style: TextStyle(fontSize: 24.0, fontWeight: FontWeight.bold),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                DropdownButton<String>(
+                  value: _moedaOrigem,
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _moedaOrigem = newValue!;
+                      _moedas.remove(_moedaOrigem);
+                    });
+                  },
+                  items: _moedas.map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(width: 16.0),
+                DropdownButton<String>(
+                  value: _moedaDestino,
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _moedaDestino = newValue!;
+                    });
+                  },
+                  items: _moedas.map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                ),
+              ],
             ),
-            SizedBox(height: _sbh,),
-            DropdownButton<String>(
-              isExpanded: true,
-              value: dropdownValue,
-              elevation: 16,
-              underline: Container(
-                height: 2,
-                color: Colors.blue,
-              ),
-              onChanged: (String? value) {
+            const SizedBox(height: 16.0),
+            ElevatedButton(
+              onPressed: () {
+                _obterCotacao();
                 setState(() {
-                  dropdownValue = value!;
-                  _chaveParaAcesso = value;
+                  _exibirCotacao = true;
                 });
               },
-              items: list.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
+              child: const Text('Obter Cotação'),
             ),
-            SizedBox(height: _sbh,),
-            DropdownButton<String>(
-              isExpanded: true,
-              value: dropdownValue2,
-              elevation: 16,
-              underline: Container(
-                height: 2,
-                color: Colors.blue,
-              ),
-              onChanged: (String? value) {
-                setState(() {
-                  dropdownValue2 = value!;
-                  _chaveParaAcesso2 = value;
-                });
-              },
-              items: list.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-            ),
-            SizedBox(height: _sbh,),
-            ElevatedButton(onPressed: Converter,
-                child: Text("Converter"))
-          ],),
-      ),)],),
+            const SizedBox(height: 16.0),
+            if (_exibirCotacao)
+              Text('Cotação: $_cotacao $_moedaDestino por $_moedaOrigem'),
+          ],
+        ),
+      ),
     );
+  }
+
+  void _obterCotacao() async {
+    try {
+      Map<String, dynamic> taxas = await obterTaxasDeConversao(_moedaOrigem, _moedaDestino);
+
+      Map<String, dynamic> moedaDestino = taxas[_moedaOrigem + _moedaDestino];
+
+      if (moedaDestino != null) {
+        _cotacao = double.parse(moedaDestino['high']);
+      } else {
+        _cotacao = 0.0;
+      }
+      setState(() {});
+    } catch (e) {
+      print('Erro durante a chamada da API: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> obterTaxasDeConversao(String firstMoeda, String lastMoeda) async {
+    try {
+      var url = Uri.parse("https://economia.awesomeapi.com.br/last/$firstMoeda-$lastMoeda");
+      http.Response response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> retorno = json.decode(response.body);
+
+        if (retorno.containsKey('data')) {
+          retorno = retorno['data'];
+        }
+        return retorno;
+      } else {
+        throw Exception('Erro na resposta da API. Código: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Erro durante a chamada da API: $e');
+      throw Exception('Erro ao obter taxas de conversão');
+    }
   }
 }
