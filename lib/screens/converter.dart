@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+const List<String> listaMoedas = <String>[
+  'Real',
+  'Dolar',
+  'Euro',
+  'Bitcoin',
+  'Sheike',
+  'Litecoin',
+  'Ethereum',
+  'Ripple'
+];
+
 class Converter extends StatefulWidget {
   const Converter({Key? key}) : super(key: key);
 
@@ -10,12 +21,24 @@ class Converter extends StatefulWidget {
 }
 
 class ConverterState extends State<Converter> {
-  String _moedaOrigem = 'BRL'; // Moeda de origem padrão
-  String _moedaDestino = 'USD'; // Moeda de destino padrão
-  double _cotacao = 0.0;
-  bool _exibirCotacao = false;
+  String _moedaOrigem = listaMoedas.first;
+  String _moedaDestino = listaMoedas.last;
+  String _moedaAcesso1 = "";
+  String _moedaAcesso2 = "";
+  String conversao = "";
 
-  List<String> _moedas = ['BRL', 'USD', 'EUR', 'ILS', 'BTC', 'LTC', 'ETH', 'XRP'];
+  TextEditingController _valorController = TextEditingController();
+
+  Map moedas = {
+    "Real": "BRL",
+    "Dolar": "USD",
+    "Euro": "EUR",
+    "Bitcoin": "BTC",
+    "Sheike": "ILS",
+    "Litecoin": "LTC",
+    "Ethereum": "ETH",
+    "Ripple": "XRP"
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -24,9 +47,8 @@ class ConverterState extends State<Converter> {
         title: const Text('Conversor de Moedas'),
         backgroundColor: Colors.blueAccent,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      body: ListView(padding: const EdgeInsets.all(16.0), children: [
+        Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Row(
@@ -37,11 +59,13 @@ class ConverterState extends State<Converter> {
                   value: _moedaOrigem,
                   onChanged: (String? newValue) {
                     setState(() {
+                      _moedaAcesso1 ??= _moedaOrigem;
                       _moedaOrigem = newValue!;
-                      _moedas.remove(_moedaOrigem);
+                      _moedaAcesso1 = newValue;
                     });
                   },
-                  items: _moedas.map<DropdownMenuItem<String>>((String value) {
+                  items:
+                  listaMoedas.map<DropdownMenuItem<String>>((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
@@ -53,10 +77,13 @@ class ConverterState extends State<Converter> {
                   value: _moedaDestino,
                   onChanged: (String? newValue) {
                     setState(() {
+                      _moedaAcesso2 ??= _moedaDestino;
                       _moedaDestino = newValue!;
+                      _moedaAcesso2 = newValue;
                     });
                   },
-                  items: _moedas.map<DropdownMenuItem<String>>((String value) {
+                  items:
+                  listaMoedas.map<DropdownMenuItem<String>>((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
@@ -66,59 +93,48 @@ class ConverterState extends State<Converter> {
               ],
             ),
             const SizedBox(height: 16.0),
-            ElevatedButton(
-              onPressed: () {
-                _obterCotacao();
-                setState(() {
-                  _exibirCotacao = true;
-                });
-              },
-              child: const Text('Obter Cotação'),
+            TextField(
+              controller: _valorController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Valor',
+                hintText: 'Digite um valor',
+              ),
             ),
             const SizedBox(height: 16.0),
-            if (_exibirCotacao)
-              Text('Cotação: $_cotacao $_moedaDestino por $_moedaOrigem'),
+            ElevatedButton(
+              onPressed: obterTaxasDeConversao,
+              child: const Text('Obter Taxas'),
+            ),
+            Center(
+              child: Text(conversao,
+                  style: const TextStyle(
+                      fontSize: 24.0, fontWeight: FontWeight.bold)),
+            )
           ],
         ),
-      ),
+      ]),
     );
   }
 
-  void _obterCotacao() async {
-    try {
-      Map<String, dynamic> taxas = await obterTaxasDeConversao(_moedaOrigem, _moedaDestino);
+  void obterTaxasDeConversao() async {
+    var url = Uri.parse(
+        "https://economia.awesomeapi.com.br/last/${moedas[_moedaAcesso2]}-${moedas[_moedaAcesso1]}");
+    http.Response response;
+    response = await http.get(url);
 
-      Map<String, dynamic> moedaDestino = taxas[_moedaOrigem + _moedaDestino];
+    Map<String, dynamic> retorno = json.decode(response.body);
 
-      if (moedaDestino != null) {
-        _cotacao = double.parse(moedaDestino['high']);
-      } else {
-        _cotacao = 0.0;
-      }
-      setState(() {});
-    } catch (e) {
-      print('Erro durante a chamada da API: $e');
-    }
-  }
+    String _chamada = moedas[_moedaAcesso2] + moedas[_moedaAcesso1];
 
-  Future<Map<String, dynamic>> obterTaxasDeConversao(String firstMoeda, String lastMoeda) async {
-    try {
-      var url = Uri.parse("https://economia.awesomeapi.com.br/last/$firstMoeda-$lastMoeda");
-      http.Response response = await http.get(url);
+    double taxaDeCambio = double.parse(retorno[_chamada]["high"]);
+    double valor = double.parse(_valorController.text);
 
-      if (response.statusCode == 200) {
-        Map<String, dynamic> retorno = json.decode(response.body);
+    double valorConvertido = valor * taxaDeCambio;
 
-        if (retorno.containsKey('data')) {
-          retorno = retorno['data'];
-        }
-        return retorno;
-      } else {
-        throw Exception('Erro na resposta da API. Código: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Erro durante a chamada da API: $e');
-      throw Exception('Erro ao obter taxas de conversão');
-    }
+    setState(() {
+      conversao =
+      "A conversão ${retorno[_chamada]["name"]} é de ${valor.toStringAsFixed(2)} ${moedas[_moedaAcesso1]} para ${valorConvertido.toStringAsFixed(2)} ${moedas[_moedaAcesso2]}";
+    });
   }
 }

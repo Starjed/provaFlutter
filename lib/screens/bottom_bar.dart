@@ -17,9 +17,8 @@ class BottomBarState extends State<BottomBar> {
 
   static final List<Widget> _widgetOptions = <Widget> [
     const WeatherPage(),
-    const ToDoPage(),
     const Converter(),
-
+    const ToDoPage()
   ];
 
   void _onItemTapped(int index) {
@@ -46,10 +45,10 @@ class BottomBarState extends State<BottomBar> {
         items: const [
           BottomNavigationBarItem(icon: Icon(FluentSystemIcons.ic_fluent_weather_cloudy_regular),
               activeIcon: Icon(FluentSystemIcons.ic_fluent_weather_cloudy_filled), label: "Weather"),
-          BottomNavigationBarItem(icon: Icon(FluentSystemIcons.ic_fluent_note_regular),
-              activeIcon: Icon(FluentSystemIcons.ic_fluent_note_filled), label: "Task"),
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.bitcoin_circle),
               activeIcon: Icon(CupertinoIcons.bitcoin_circle_fill), label: "Coin"),
+          BottomNavigationBarItem(icon: Icon(FluentSystemIcons.ic_fluent_note_regular),
+              activeIcon: Icon(FluentSystemIcons.ic_fluent_note_filled), label: "Task"),
         ],),
     );
   }
